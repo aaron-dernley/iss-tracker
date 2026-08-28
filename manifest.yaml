@@ -1,0 +1,24 @@
+manifestVersion: 1
+name: "@aaronge/iss-tracker"
+version: "2026.08.28.1"
+description: "Tracks the International Space Station's current position (Open Notify's free iss-now.json API) and reports its great-circle distance from a configured ground location — a fun proximity indicator, not a real pass-prediction tool."
+
+repository: https://github.com/aaron-dernley/iss-tracker
+
+models:
+  - iss_tracker.ts
+
+additionalFiles:
+  - README.md
+  - LICENSE
+
+platforms:
+  - linux-x86_64
+  - linux-aarch64
+  - darwin-aarch64
+  - darwin-x86_64
+
+labels:
+  - fun
+  - space
+  - api

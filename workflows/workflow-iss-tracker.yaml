@@ -1,0 +1,69 @@
+id: af88de8a-17ff-4243-82f1-42c500c97835
+name: "@aaronge/iss-tracker"
+description: >-
+  Checks how far the ISS is from the configured location, then exports the
+  distance and the within-range flag as a Prometheus textfile metric for
+  the Fun Stuff dashboard. Ships in the package and is scheduled by
+  `swamp serve` through trigger.schedule — every 5 minutes at :03/:08/…,
+  offset from the other 5-minute workflows (the old systemd timer also
+  fired 50 seconds into the minute, which 5-field cron can't express).
+  This replaces the systemd timer + run-via-serve.sh, now legacy. The
+  export job runs only after a successful check, as the wrapper did
+  (set -e): Open Notify's free API fails now and then, and an old reading
+  is better than none.
+version: 1
+tags: {}
+trigger:
+  schedule: "3-59/5 * * * *"
+jobs:
+  - name: check
+    description: Fetch the ISS position and compute its distance.
+    steps:
+      - name: checkOverhead
+        task:
+          type: model_method
+          modelIdOrName: my-location
+          methodName: checkOverhead
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+    dependsOn: []
+    weight: 0
+  - name: export
+    description: >-
+      Write /var/lib/prometheus/node-exporter/iss-tracker.prom. Written
+      atomically (tmp file + mv) since node_exporter may be scraping the
+      textfile directory concurrently. Both values are numbers rendered by
+      CEL, so the shell only prints.
+    dependsOn:
+      - job: check
+        condition:
+          type: succeeded
+    steps:
+      - name: writeTextfile
+        task:
+          type: model_method
+          modelType: "command/shell"
+          modelName: iss-tracker-textfile-writer
+          methodName: execute
+          inputs:
+            run: |
+              set -eu
+              DEST_DIR=/var/lib/prometheus/node-exporter
+              TMP=$(mktemp "$DEST_DIR/.iss-tracker.prom.XXXXXX")
+              trap 'rm -f "$TMP"' EXIT
+              {
+                echo "# HELP iss_tracker_distance_km Great-circle distance from the configured location to the ISS."
+                echo "# TYPE iss_tracker_distance_km gauge"
+                echo "iss_tracker_distance_km ${{ data.latest('my-location','position').attributes.distanceKm }}"
+                echo "# HELP iss_tracker_within_range 1 if distance is under the configured threshold (a proximity proxy, not a real pass prediction)."
+                echo "# TYPE iss_tracker_within_range gauge"
+                echo "iss_tracker_within_range ${{ data.latest('my-location','position').attributes.withinRange ? 1 : 0 }}"
+              } > "$TMP"
+              chmod 644 "$TMP"
+              mv "$TMP" "$DEST_DIR/iss-tracker.prom"
+              trap - EXIT
+        dependsOn: []
+        weight: 0
+        allowFailure: false
+    weight: 0

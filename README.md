@@ -64,10 +64,33 @@ your location, and whether that distance is under `thresholdKm` (default
 
 ## Workflow
 
-None bundled. Run `checkOverhead` on whatever cadence you like — Open
-Notify's API is free and unauthenticated, but be a reasonable citizen of
-someone else's free service (every few minutes is plenty; the ISS moves
+The `@aaronge/iss-tracker` workflow ships in the package, so
+`swamp extension pull @aaronge/iss-tracker` brings it along. It carries its
+own `trigger.schedule` (`3-59/5 * * * *`, every 5 minutes, offset from
+other 5-minute jobs), so a running `swamp serve` runs `checkOverhead` and
+then exports `iss_tracker_distance_km` and `iss_tracker_within_range` as a
+Prometheus textfile metric (`/var/lib/prometheus/node-exporter/iss-tracker.prom`,
+written atomically). The export only runs after a successful check, so an
+Open Notify hiccup leaves the last reading in place.
+
+Open Notify's API is free and unauthenticated, but be a reasonable citizen
+of someone else's free service (every few minutes is plenty; the ISS moves
 about 7.7km/s, so sub-minute polling buys you nothing meaningful).
+
+The consuming repo needs a `my-location` model instance with your
+coordinates:
+
+```bash
+swamp model create @aaronge/iss-tracker my-location
+swamp workflow run @aaronge/iss-tracker   # one manual run
+```
+
+To change the cadence without editing the package:
+`swamp workflow trigger set @aaronge/iss-tracker --schedule "*/15 * * * *"`.
+
+`run-via-serve.sh` is legacy: it ran the same check from a systemd timer
+through a throwaway `swamp serve`, then wrote the textfile with inline
+Python. It's kept for reference only.
 
 ## License
 

@@ -11,7 +11,7 @@ INSTANCE=my-location
 METHOD=checkOverhead
 
 cd "$REPO_DIR"
-swamp serve --repo-dir "$REPO_DIR" --port "$PORT" --host 127.0.0.1 --no-schedule --no-telemetry \
+swamp serve --repo-dir "$REPO_DIR" --port "$PORT" --host 127.0.0.1 --no-schedule \
   >/tmp/iss-tracker-serve.log 2>&1 &
 SERVE_PID=$!
 trap 'kill "$SERVE_PID" 2>/dev/null || true' EXIT
@@ -25,3 +25,21 @@ for _ in $(seq 1 20); do
 done
 
 swamp model method run "$INSTANCE" "$METHOD" --server "ws://127.0.0.1:${PORT}"
+
+# Export a small Prometheus textfile snippet for the Fun Stuff Grafana
+# dashboard. Written atomically (tmp file + mv) since node_exporter may
+# be scraping the textfile directory concurrently.
+PROM_DIR=/var/lib/prometheus/node-exporter
+PROM_TMP="$(mktemp "${PROM_DIR}/.iss-tracker.prom.XXXXXX")"
+swamp data get "$INSTANCE" position --server "ws://127.0.0.1:${PORT}" --json | python3 -c "
+import json, sys
+d = json.load(sys.stdin)['content']
+print('# HELP iss_tracker_distance_km Great-circle distance from the configured location to the ISS.')
+print('# TYPE iss_tracker_distance_km gauge')
+print(f\"iss_tracker_distance_km {d['distanceKm']}\")
+print('# HELP iss_tracker_within_range 1 if distance is under the configured threshold (a proximity proxy, not a real pass prediction).')
+print('# TYPE iss_tracker_within_range gauge')
+print(f\"iss_tracker_within_range {1 if d['withinRange'] else 0}\")
+" > "$PROM_TMP"
+chmod 644 "$PROM_TMP"
+mv "$PROM_TMP" "${PROM_DIR}/iss-tracker.prom"

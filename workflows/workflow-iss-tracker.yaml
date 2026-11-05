@@ -7,8 +7,9 @@ description: >-
   `swamp serve` through trigger.schedule — every 5 minutes at :03/:08/…,
   offset from the other 5-minute workflows (the old systemd timer also
   fired 50 seconds into the minute, which 5-field cron can't express).
-  This replaces the systemd timer + run-via-serve.sh, now legacy. The
-  export job runs only after a successful check, as the wrapper did
+  It replaced that timer + run-via-serve.sh wrapper, both removed on
+  2026-11-05. The export job runs only after a successful check, as the
+  wrapper did
   (set -e): Open Notify's free API fails now and then, and an old reading
   is better than none.
 version: 1

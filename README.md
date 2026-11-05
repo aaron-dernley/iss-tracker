@@ -88,9 +88,9 @@ swamp workflow run @aaronge/iss-tracker   # one manual run
 To change the cadence without editing the package:
 `swamp workflow trigger set @aaronge/iss-tracker --schedule "*/15 * * * *"`.
 
-`run-via-serve.sh` is legacy: it ran the same check from a systemd timer
-through a throwaway `swamp serve`, then wrote the textfile with inline
-Python. It's kept for reference only.
+The old `run-via-serve.sh` wrapper, which ran the same check from a
+systemd timer through a throwaway `swamp serve` and wrote the textfile with
+inline Python, was removed on 2026-11-05. The shipped workflow replaces it.
 
 ## License
 
